@@ -1,0 +1,6 @@
+#!/bin/bash
+
+#open in new window, https://answers.yahoo.com/question/index?qid=20080213161834AATH9Zq
+cygstart elm-server
+
+cygstart http://localhost:8000
