@@ -61,6 +61,9 @@ getIs str d = maybe [] (\i -> (case i of
                                I ls -> ls
                                S ls -> [])) (D.get str d)
 
+agetIs: String -> Actor -> [Int]
+agetIs str a = getIs str a.info
+
 getInt : String -> DictInfo -> Int
 getInt str d = maybe 0 (\i -> (case i of 
              I ls -> getL ls 0 0
@@ -80,13 +83,22 @@ getSs str d = maybe [] (\i -> (case i of
              I ls -> []
              S ls -> ls)) (D.get str d)
 
+agetSs: String -> Actor -> [String]
+agetSs str a = getSs str (a.info)
+
 getStr : String -> DictInfo -> String
 getStr str d = maybe "" (\i -> (case i of 
              I ls -> ""
              S ls -> getL ls 0 "")) (D.get str d)
 
+agetStr: String -> Actor -> String
+agetStr str a = getStr str (a.info)
+
 setStr : String -> String -> DictInfo -> DictInfo
 setStr str s d = D.insert str (S [s]) d 
+
+asetStr: String -> String -> Actor -> Actor
+asetStr str s a = {a | info <- setStr str s a.info}
 
 dirFrom : Int -> (Int,Int) -> (Int,Int)
 dirFrom dir (x,y) = if | dir==downArrow -> downFrom (x,y)
@@ -94,6 +106,15 @@ dirFrom dir (x,y) = if | dir==downArrow -> downFrom (x,y)
                        | dir==leftArrow -> leftFrom (x,y)
                        | dir==rightArrow -> rightFrom (x,y)
                        | otherwise -> (x,y)
+
+adirFrom: Int -> Actor -> (Int,Int)
+adirFrom dir a = dirFrom dir (a.locs!0) 
+
+getFromArg : (Actor -> Action) -> Action
+getFromArg f = (\inp ac w -> (f ac) inp ac w)
+
+dirFromInp : (Int -> Action) -> Action
+dirFromInp f = (\inp ac w -> (f (getOneKey inp.keys)) inp ac w)
 
 getFirstNonzero : [Int] -> Int
 getFirstNonzero li = if | isEmpty li -> 0
@@ -140,18 +161,18 @@ setType i a = {a | info <- setStr "type" i a.info}
 --alocs is a map from locations to actors.
 type World a = {a | l:Int, h: Int, adict: D.Dict Int Actor, alist: [Int], alocs: D.Dict (Int,Int) (Set.Set Int), text:String, curId:Int}
 
+type MDict comparable comparable' = D.Dict comparable (Set.Set comparable')
+
 emptyWorld:Int -> Int -> World {}
 emptyWorld x y = {l=x, h=y, adict=D.empty, alist=[], alocs=D.empty, text="", curId = 0}
 
-type MDict comparable = D.Dict comparable (Set.Set Int)
-
-mget: comparable -> MDict comparable -> (Set.Set Int)
+mget: comparable -> MDict comparable comparable' -> (Set.Set comparable')
 mget x d = getD x (Set.empty) d
 
-addM: comparable -> Int -> MDict comparable -> MDict comparable
+addM: comparable -> comparable' -> MDict comparable comparable' -> MDict comparable comparable'
 addM x y d = D.insert x (Set.insert y (mget x d)) d
 
-remM: comparable -> Int -> MDict comparable -> MDict comparable
+remM: comparable -> comparable' -> MDict comparable comparable' -> MDict comparable comparable'
 remM x y d = D.insert x (Set.remove y (mget x d)) d
 
 getActor: Int -> World a -> Actor
@@ -201,6 +222,9 @@ updateActor old new w =
 messageAction : (Actor -> String) -> (Input -> Actor -> World a -> World a)
 messageAction f = (\_ a w -> {w | text <- w.text ++ "\n" ++ (f a)})
 
+messageAction2 : (Input -> Actor -> World a -> String) -> (Input -> Actor -> World a -> World a)
+messageAction2 f = (\inp a w -> {w | text <- w.text ++ "\n" ++ (f inp a w)})
+
 simpleAction : (Input -> Actor -> World a -> Actor) -> (Input -> Actor -> World a -> World a)
 simpleAction f = (\inp -> (\ac -> (\w -> 
                                let 
@@ -215,7 +239,6 @@ seqActions acts =
              in
                foldl (\action -> (\w1 -> 
                                  action inp (getActor id w1) w1)) w acts) 
-
 
 --careful! if actor self-destructs...
 
@@ -249,14 +272,60 @@ emptySpace: World a -> (Int,Int) -> Bool
 emptySpace w (x,y) = (Set.empty == (mget (x,y) w.alocs))
 
 tryMove : World a -> (Int,Int) -> Int -> (Int,Int)
-tryMove w (x,y) dir = if | dir==upArrow && y+1<w.h && emptySpace w (x,y+1) -> (x,y+1)
-                         | dir==downArrow && y-1>=0 && emptySpace w (x,y-1) -> (x,y-1)
-                         | dir==leftArrow && x-1>=0 && emptySpace w (x-1,y) -> (x-1,y)
-                         | dir==rightArrow && x+1<w.h && emptySpace w (x+1,y) -> (x+1,y)
-                         | otherwise -> (x,y)
+tryMove w (x,y) dir = let newSpace = dirFrom dir (x,y)
+                      in
+                        if (inRange w newSpace) && (emptySpace w newSpace) then newSpace else (x,y)
+--tryMove w (x,y) dir = if | dir==upArrow && y+1<w.h && emptySpace w (x,y+1) -> (x,y+1)
+--                         | dir==downArrow && y-1>=0 && emptySpace w (x,y-1) -> (x,y-1)
+--                         | dir==leftArrow && x-1>=0 && emptySpace w (x-1,y) -> (x-1,y)
+--                         | dir==rightArrow && x+1<w.h && emptySpace w (x+1,y) -> (x+1,y)
+--                         | otherwise -> (x,y)
+
+moveInDir : Int -> Action
+moveInDir dir = simpleAction (\inp -> (\a -> (\w -> 
+                                                  let 
+                                                      oldLoc = a.locs!0
+                                                  in a |> (setLoc (tryMove w oldLoc (dir))) |> (\x -> if (x.locs!0)==oldLoc 
+                                                                                                      then (asetInt "success" 0 x)
+                                                                                                      else (asetInt "success" 1 x)))))
+
+moveIn: Action
+moveIn = (\inp -> (moveInDir (getOneKey inp.keys)) inp)
+
+setAction : (Actor -> Actor) -> Action
+setAction f = simpleAction (\_ a _ -> f a)
+
+faceDir : Int -> Action
+faceDir dir = setAction (asetInt "face" dir)
+
+dirs : Set.Set Int
+dirs = Set.fromList [upArrow,downArrow,leftArrow,rightArrow]
+
+readFromDirInput : (Int -> Action) -> Action
+readFromDirInput f = (check (\inp _ _ -> Set.member (getOneKey inp.keys) dirs)) .& (\inp -> (f (getOneKey inp.keys)) inp) 
+
+face : Action
+face = readFromDirInput faceDir
+--(check (\inp _ _ -> not (getOneKey inp.keys == 0))) .& (\inp -> (faceDir (getOneKey inp.keys)) inp) 
+--.& (messageAction (\_ -> "faced"))
+
+velocityDir: Int -> Action
+velocityDir dir = setAction (asetInt "v" dir)
+
+velocity : Action
+velocity = readFromDirInput velocityDir
+
+stop: Action
+stop = velocityDir 0
+
+check : (Input -> Actor -> World {} -> Bool) -> Action
+check f = simpleAction (\inp a w -> if f inp a w then asetInt "success" 1 a else asetInt "success" 0 a)
+
+checkActor : (Actor -> Bool) -> Action
+checkActor f = check (\_ a _ -> f a)
 
 inRange : World a -> (Int,Int) -> Bool
-inRange w (x,y) = (y<w.h && y>=0 && x>=0 && x<w.h)
+inRange w (x,y) = (y<w.h && y>=0 && x>=0 && x<w.l)
 
 tryJump : World a -> Actor  -> (Int,Int) -> Actor
 tryJump w ac (x,y) = 
@@ -291,6 +360,9 @@ type DrawActor = (Actor -> (Int,Int) -> Element)
 simpleDraw: Element->DrawActor
 simpleDraw e = (\_ _ -> e)
 
+faceDraw: D.Dict Int Element -> DrawActor
+faceDraw d = (\a _ -> getD (agetInt "face" a) empty d)
+
 addType: String -> Action -> Reaction -> DrawActor -> World2 -> World2
 addType str act react da w = {w | actions <- D.insert str act w.actions,
                                   reactions <- D.insert str react w.reactions,
@@ -302,11 +374,41 @@ getOneKey li = if (isEmpty li) then 0 else (li!0)
 player:Actor
 player = nullActor |> setType "player" |> setLoc (0,0)
 
+--playerAction:Action
+--playerAction = seqActions [simpleAction (\inp -> (\a -> (\w -> setLoc (tryMove w (a.locs!0) (getOneKey inp.keys)) a))), messageAction (\a -> show (a.locs!0))]
 playerAction:Action
-playerAction = seqActions [simpleAction (\inp -> (\a -> (\w -> setLoc (tryMove w (a.locs!0) (getOneKey inp.keys)) a))), messageAction (\a -> show (a.locs!0))]
+playerAction = seqActions [face, moveIn, messageAction (\a -> show (a.locs!0))]
+--inp (getActor (getId a) w) w
+
+ppAction:Action
+ppAction = seqActions [messageAction (\a -> show (a.locs!0)),face, (moveIn  .| (\inp a w -> 
+                                         (make (getFirstActorAt (adirFrom (getOneKey inp.keys) a) w) (dirFromInp velocityDir)) inp a w 
+                                    ))]
+--messageAction (\_ -> "moved"))]
+--messageAction2 (\inp a w -> show (adirFrom (getOneKey inp.keys) a)))]
+-- .| (\inp a w -> 
+--                                         (make (getFirstActorAt (adirFrom (getOneKey inp.keys) a) w) (dirFromInp velocityDir)) inp a w 
+--                                    ))]
+-- moveIn, messageAction (\a -> show (a.locs!0))]
 
 playerDraw:DrawActor
 playerDraw = simpleDraw (image 32 32 "/player.jpg")
+
+ppFace: D.Dict Int Element
+ppFace = D.empty |> foldlRot (\(arr,t) -> D.insert arr (croppedImage t 30 30 "iceblox.gif")) [(upArrow, (150,0)), (downArrow, (60,0)), (leftArrow, (210,0)), (rightArrow, (120,30)), (0, (60,0))]
+--default is down.
+
+ppDraw:DrawActor
+ppDraw = faceDraw ppFace
+
+block:Actor
+block = nullActor |> setType "block" |> setLoc (5,5)
+
+blockDraw:DrawActor
+blockDraw = simpleDraw (croppedImage (0,60) 30 30 "iceblox.gif")
+
+--icebloxAction:Action
+--icebloxAction = (\inp a w -> (moveInDir (agetInt "velocity" a)) inp a w) .| stop
 
 blockDude:Actor
 blockDude = nullActor |> setType "player" |> setLoc (0,0) |> (\x -> {x | info <- setInt "carrying" 0 x.info})
@@ -331,7 +433,12 @@ wp:Int
 wp = (wd*pixels)
 
 worldStart:Int -> Int -> World2
-worldStart x y = (emptyWorld2 x y) |> (addActor player) |> addType "player" playerAction nullReaction playerDraw
+worldStart x y = (emptyWorld2 x y) 
+               |> (addActor player) 
+               |> addType "player" ppAction nullReaction ppDraw
+               |> (addActor block)
+               |> addType "block" inertia nullReaction blockDraw
+--playerDraw
 
 --the window to display
 viewCoord:World2 -> (Int,Int,Int,Int)
@@ -369,7 +476,7 @@ display w =
        drawPics = List.map (\(t,a) -> drawActor (getActor a w) t w) drawList
    in
        collageAbs (wp+sidebarL) hp ((0,0)::(480,450)::drawCoords)
-            ((image 480 480 "field.jpg")::(plainText w.text)::drawPics)
+            ((image 480 480 "bg.gif")::(plainText w.text)::drawPics)
 
 
 delta = inSeconds <~ fps 10
@@ -387,6 +494,46 @@ a1 .& a2 = seqActions [a1,(\inp a w -> if ((agetInt "success" a) == 0) then w el
 
 (.|):Action -> Action -> Action
 a1 .| a2 = seqActions [a1,(\inp a w -> if ((agetInt "success" a) == 0) then a2 inp a w else w)]
+
+try:Action -> Action
+try a = seqActions [a, setAction (\a -> asetInt "success" 1 a)]
+
+repeat: Int -> Action -> Action
+repeat n a = (if n==0 then a else (\inp a1 w -> if ((agetInt "success" a1) == 0) then w else (repeat (n-1) a) inp (getActor (getId a1) w) w)) .& (setSuccess 1)
+--the following is easier to write but less efficient?
+--repeat n a = foldl (.&) (repeat n a)
+
+setSuccess: Int -> Action
+setSuccess i = simpleAction (\inp a w -> asetInt "success" i a)
+
+fail: Action
+fail = setSuccess 0
+
+many0: Action -> Action
+many0 a = (\inp a1 w -> if ((agetInt "success" a1) == 0) then w else (many0 a) inp (getActor (getId a1) w) w)
+
+many: Action -> Action
+many a = (a .| fail) .& (many0 a)
+
+--make the 2nd actor do something
+make: Actor -> Action -> Action
+make a action = (\inp _ w -> if getType a == "null" then w else action inp a w)
+--(added a check to see if it's null)
+
+getFirstActorAt:(Int,Int) -> World {} -> Actor
+getFirstActorAt (x,y) w = 
+    let 
+        s = mget (x,y) w.alocs
+            --set
+        l = List.map (\i -> getActor i w) (Set.toList s)
+    in
+      getL l 0 nullActor
+
+--kill: Actor -> Action
+--kill a = (\_ _ w -> 
+
+inertia:Action
+inertia = seqActions [messageAction (\x -> show (agetInt "v" x)) ,(\inp a w -> (moveInDir (agetInt "v" a)) inp a w) .| stop]
 
 --dudeAction:Action
 --dudeAction inp a w = 
