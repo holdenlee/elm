@@ -517,7 +517,7 @@ many a = (a .| fail) .& (many0 a)
 
 --make the 2nd actor do something
 make: Actor -> Action -> Action
-make a action = (\inp _ w -> if getType a == "null" then w else action inp a w)
+make a action = (\inp _ w -> if getType a == "" then w else action inp a w)
 --(added a check to see if it's null)
 
 getFirstActorAt:(Int,Int) -> World {} -> Actor
