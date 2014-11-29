@@ -35,6 +35,6 @@ worldStart x y = (emptyWorld2 x y)
                |> (addActor player) 
                |> addType "player" playerAction nullReaction playerDraw
 
-worldState = foldp stepWorld (worldStart wd ht) input
+worldState = foldp stepWorld (worldStart 15 15) input
 
-main = lift display worldState
+main = lift defaultDisplay worldState

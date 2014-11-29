@@ -7,6 +7,7 @@ import Dict as D
 import Maybe (..)
 import List
 import Set
+import Array as A
 --user-defined modules
 import Utilities (..)
 import MDict (..)
@@ -25,7 +26,7 @@ type World2 = World {actions: D.Dict String Action, reactions: D.Dict String Rea
 emptyWorld2:Int -> Int -> World2
 emptyWorld2 x y = 
     let ew = emptyWorld x y 
-    in {l=x, h=y, adict=D.empty, alist=[], alocs=D.empty, text="", curId = 0, actions = D.empty, reactions = D.empty, draws = D.empty}
+    in {l=x, h=y, adict=D.empty, ilist=A.empty, alocs=D.empty, text="", curId = 0, actions = D.empty, reactions = D.empty, draws = D.empty}
 --{ew | actions = D.empty, reactions = D.empty, draw = D.empty}
 
 drawActor: Actor -> (Int,Int) -> World2 -> Element
@@ -38,10 +39,10 @@ stepWorld inp w =
         w01 = {w00 - reactions}
         w0 = {w01 - draws | text = ""}
         (_,w2) = while 
-                   (\(i,wo)-> (i<(length wo.alist))) 
+                   (\(i,wo)-> (i<(A.length wo.ilist))) 
                    (0,w0) 
                    (\(i,wo) -> 
-                       let a = getActor (wo.alist!i) wo
+                       let a = getActor (A.getOrFail i wo.ilist) wo
                        in (i+1, (maybe wo (\action -> action inp a wo) (D.get (getType a) w.actions))))
         w20 = {w2 | actions = w.actions}
         w21 = {w20 | reactions = w.reactions}

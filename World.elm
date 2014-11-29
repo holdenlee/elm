@@ -7,6 +7,7 @@ import Dict as D
 import Maybe (..)
 import List
 import Set
+import Array as A
 --user-defined modules
 import Utilities (..)
 import MDict (..)
@@ -15,9 +16,9 @@ import Actor (..)
 import Input (..)
 
 --adict is list of all actors by id
---alist is list of *active* actors' id in order of movement (movement is sequential)
+--ilist is list of *active* actors' id in order of movement (movement is sequential)
 --alocs is a map from locations to actors.
-type World a = {a | l:Int, h: Int, adict: D.Dict Int Actor, alist: [Int], alocs: D.Dict (Int,Int) (Set.Set Int), text:String, curId:Int}
+type World a = {a | l:Int, h: Int, adict: D.Dict Int Actor, ilist: A.Array Int, alocs: D.Dict (Int,Int) (Set.Set Int), text:String, curId:Int}
 
 getActor: Int -> World a -> Actor
 getActor i w = getD i nullActor w.adict
@@ -28,10 +29,13 @@ addActor ac w =
         newA = ac |> setId w.curId
         locs = ac.locs
     in
-        { w | alist <- w.alist ++ [w.curId], 
+        { w | ilist <- A.push w.curId w.ilist, 
                        adict <- w.adict |> (D.insert w.curId newA), 
                        alocs <- w.alocs |> foldlRot (\loc -> addM loc w.curId) locs,  
                        curId <- w.curId + 1}
+
+addActorAtLocs:Actor -> [(Int,Int)] -> World a -> World a
+addActorAtLocs ac li w = w |> foldlRot (\loc wo -> wo |> addActor (ac |> setLoc loc)) li
 
 getFirstActorAt:(Int,Int) -> World {} -> Actor
 getFirstActorAt (x,y) w = 
@@ -55,7 +59,7 @@ updateActor old new w =
         {w | alocs <- al2, adict <- D.insert id new w.adict}
 
 emptyWorld:Int -> Int -> World {}
-emptyWorld x y = {l=x, h=y, adict=D.empty, alist=[], alocs=D.empty, text="", curId = 0}
+emptyWorld x y = {l=x, h=y, adict=D.empty, ilist=A.empty, alocs=D.empty, text="", curId = 0}
 
 --moving in the world
 
