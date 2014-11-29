@@ -37,15 +37,21 @@ addActor ac w =
 addActorAtLocs:Actor -> [(Int,Int)] -> World a -> World a
 addActorAtLocs ac li w = w |> foldlRot (\loc wo -> wo |> addActor (ac |> setLoc loc)) li
 
-getFirstActorAt:(Int,Int) -> World {} -> Actor
-getFirstActorAt (x,y) w = 
+getActorsAt: (Int,Int) -> World {}-> [Actor]
+getActorsAt (x,y) w = 
     let 
         s = mget (x,y) w.alocs
-            --set
-        l = List.map (\i -> getActor i w) (Set.toList s)
     in
-      getL l 0 nullActor
+        List.map (\i -> getActor i w) (Set.toList s)
 
+getFirstActorAt:(Int,Int) -> World {} -> Actor
+getFirstActorAt (x,y) w = getL (getActorsAt (x,y) w) 0 nullActor
+
+getAtSameSpace: Actor -> World {} -> [Actor]
+getAtSameSpace a w = getActorsAt (a.locs!0) w
+
+getPlayerAtSameSpace : Actor -> World {} -> Actor
+getPlayerAtSameSpace a w =getL (List.filter (\x -> getType x == "player") (getAtSameSpace a w)) 0 nullActor
 
 --this is inefficient if actor is large (ex. Snake)
 updateActor: Actor -> Actor -> World a -> World a
@@ -69,10 +75,18 @@ inRange w (x,y) = (y<w.h && y>=0 && x>=0 && x<w.l)
 emptySpace: World a -> (Int,Int) -> Bool
 emptySpace w (x,y) = (Set.empty == (mget (x,y) w.alocs))
 
+type MoveCondition a = World a -> (Int,Int) -> Bool
+
+defaultMoveCondition : MoveCondition a
+defaultMoveCondition w sp = (inRange w sp) && (emptySpace w sp)
+
 tryMove : World a -> (Int,Int) -> Int -> (Int,Int)
-tryMove w (x,y) dir = let newSpace = dirFrom dir (x,y)
+tryMove w (x,y) dir = tryMove2 defaultMoveCondition w (x,y) dir
+
+tryMove2: MoveCondition a -> World a -> (Int,Int) -> Int -> (Int,Int)
+tryMove2 mc w (x,y) dir = let newSpace = dirFrom dir (x,y)
                       in
-                        if (inRange w newSpace) && (emptySpace w newSpace) then newSpace else (x,y)
+                        if mc w newSpace then newSpace else (x,y)
 
 actorInDir : Int -> Actor -> World {} -> Actor
 actorInDir i ac w = (getFirstActorAt (adirFrom i ac) w)

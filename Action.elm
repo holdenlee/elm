@@ -74,20 +74,31 @@ moveInDir dir = simpleAction (\inp -> (\a -> (\w ->
                                                                                                       then (asetInt "success" 0 x)
                                                                                                       else (asetInt "success" 1 x)))))
 
+moveInDir2 : MoveCondition {} -> Int -> Action
+moveInDir2 mc dir = simpleAction (\inp -> (\a -> (\w -> 
+                                                  let 
+                                                      oldLoc = a.locs!0
+                                                  in a |> (setLoc (tryMove2 mc w oldLoc (dir))) |> (\x -> if (x.locs!0)==oldLoc 
+                                                                                                      then (asetInt "success" 0 x)
+                                                                                                      else (asetInt "success" 1 x)))))
+
 moveIn: Action
 moveIn = (\inp -> (moveInDir (getOneKey inp.keys)) inp)
+
+moveIn2: MoveCondition {} -> Action
+moveIn2 mc =  (\inp -> (moveInDir2 mc (getOneKey inp.keys)) inp)
 
 --tryJump : World a -> Actor  -> (Int,Int) -> Actor
 --tryJump w ac (x,y) = 
 --    if ((inRange w (x,y)) && emptySpace w (x,y)) then setLoc (x,y) ac else ac
 
-tryMoves : World a -> (Int, Int) -> [Int] -> ((Int, Int), Int)
-tryMoves w (x,y) dirs = 
-    let (iend, newLoc) = while
-            (\(i,loc)->(i<length dirs && loc == (x,y)))
-            (0,(x,y))
-            (\(i,(x,y)) ->(i+1,tryMove w (x,y) (dirs!i)))
-    in (newLoc, if ((x,y)==newLoc) then 0 else dirs!(iend-1)) 
+--tryMoves : World a -> (Int, Int) -> [Int] -> ((Int, Int), Int)
+--tryMoves w (x,y) dirs = 
+--    let (iend, newLoc) = while
+--            (\(i,loc)->(i<length dirs && loc == (x,y)))
+--            (0,(x,y))
+--            (\(i,(x,y)) ->(i+1,tryMove w (x,y) (dirs!i)))
+--    in (newLoc, if ((x,y)==newLoc) then 0 else dirs!(iend-1)) 
 
 faceDir : Int -> Action
 faceDir dir = setAction (asetInt "face" dir)
@@ -156,3 +167,6 @@ make a action = (\inp _ w -> if getType a == "" then w else action inp a w)
 
 makeActorIn : Action -> Action
 makeActorIn f = (\inp a w -> (make (actorIn inp a w) f) inp a w)
+
+die: Action
+die = simpleAction (\_ _ _ -> nullActor)
