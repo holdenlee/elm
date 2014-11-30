@@ -23,8 +23,8 @@ player = nullActor |> setType "player" |> setLoc (0,0)
 
 ppAction:Action
 ppAction = seqActions [
-            messageAction (\a -> show (a.locs!0)),
-            face, 
+            messageAction (\a -> "I'm at " ++ show (a.locs!0)),
+            face,
             (moveIn .| makeActorIn (dirFromInp velocityDir))
            ]
 
@@ -38,6 +38,10 @@ block:Actor
 block = nullActor |> setType "block" 
 --|> setLoc (5,5)
 
+blockAction:Action
+blockAction = seqActions [(inertia2 (allActorsSatisfy (\x -> getType x == "enemy"))) 
+              , (\inp a w -> (seqActions (List.map (\x -> make x die) (getSatisfyingAtSameSpace (\x -> getType x == "enemy") a w))) inp a w)]
+
 blockDraw:DrawActor
 blockDraw = simpleDraw (croppedImage (0,60) 30 30 "iceblox.gif")
 
@@ -46,8 +50,9 @@ enemy = nullActor |> setType "enemy" |> setLoc (14,14)
 
 enemyAction = seqActions [foldl1 (.|) (List.map (moveInDir2 
                                 (allActorsSatisfy (\x -> getType x == "player")))
-                                [downArrow,leftArrow]),
-                          (\inp a w -> (make (getPlayerAtSameSpace a w) die) inp a w)]
+                                [leftArrow])
+-- ,
+                          , (\inp a w -> (make (getPlayerAtSameSpace a w) die) inp a w)]
 
 enemyDraw = simpleDraw (croppedImage (60,120) 30 30 "iceblox.gif")
 
@@ -56,7 +61,7 @@ worldStart x y = (emptyWorld2 x y)
                |> (addActor player) 
                |> addType "player" ppAction nullReaction ppDraw
                |> (addActorAtLocs block [(5,5),(6,6),(7,7),(5,7)])
-               |> addType "block" inertia nullReaction blockDraw
+               |> addType "block" blockAction nullReaction blockDraw
                |> addActor enemy
                |> addType "enemy" enemyAction nullReaction enemyDraw
 --(addActor block)

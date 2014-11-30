@@ -53,6 +53,10 @@ getAtSameSpace a w = getActorsAt (a.locs!0) w
 getPlayerAtSameSpace : Actor -> World {} -> Actor
 getPlayerAtSameSpace a w =getL (List.filter (\x -> getType x == "player") (getAtSameSpace a w)) 0 nullActor
 
+getSatisfyingAtSameSpace : (Actor -> Bool) -> Actor -> World {} -> [Actor]
+getSatisfyingAtSameSpace f a w = (List.filter (\x -> f x) (getAtSameSpace a w))
+
+
 --this is inefficient if actor is large (ex. Snake)
 updateActor: Actor -> Actor -> World a -> World a
 updateActor old new w = 

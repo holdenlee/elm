@@ -121,7 +121,14 @@ stop = velocityDir 0
 --kill a = (\_ _ w -> 
 
 inertia:Action
-inertia = seqActions [messageAction (\x -> show (agetInt "v" x)) ,(\inp a w -> (moveInDir (agetInt "v" a)) inp a w) .| stop]
+inertia = (\inp a w -> (moveInDir (agetInt "v" a)) inp a w) .| stop
+--seqActions [messageAction (\x -> show (agetInt "v" x)) ,(\inp a w -> (moveInDir (agetInt "v" a)) inp a w) .| stop]
+
+inertia2: MoveCondition {} -> Action
+inertia2 mc = (\inp a w -> (moveInDir2 mc (agetInt "v" a)) inp a w) .| stop
+
+allActorsSatisfy : (Actor -> Bool) -> MoveCondition {}
+allActorsSatisfy f = (\w loc -> inRange w loc && ([] == List.filter (\x -> not (f x)) (getActorsAt loc w)))
 
 --combinators
 
