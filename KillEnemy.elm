@@ -39,8 +39,8 @@ block = nullActor |> setType "block"
 --|> setLoc (5,5)
 
 blockAction:Action
-blockAction = seqActions [(inertia2 (allActorsSatisfy (\x -> getType x == "enemy"))) 
-              , (\inp a w -> (seqActions (List.map (\x -> make x die) (getSatisfyingAtSameSpace (\x -> getType x == "enemy") a w))) inp a w)]
+blockAction = seqActions [messageAction (\_ -> "block tries"),(inertia2 (allActorsSatisfy (\x -> getType x == "enemy")))
+              , doForAll (\x -> make x die) (getSatisfyingAtSameSpace (\x -> getType x == "enemy"))]
 
 blockDraw:DrawActor
 blockDraw = simpleDraw (croppedImage (0,60) 30 30 "iceblox.gif")
@@ -50,9 +50,9 @@ enemy = nullActor |> setType "enemy" |> setLoc (14,14)
 
 enemyAction = seqActions [foldl1 (.|) (List.map (moveInDir2 
                                 (allActorsSatisfy (\x -> getType x == "player")))
-                                [leftArrow])
+                                [downArrow,leftArrow])
 -- ,
-                          , (\inp a w -> (make (getPlayerAtSameSpace a w) die) inp a w)]
+                          , makeRel getPlayerAtSameSpace die]
 
 enemyDraw = simpleDraw (croppedImage (60,120) 30 30 "iceblox.gif")
 

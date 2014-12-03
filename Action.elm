@@ -15,78 +15,85 @@ import Actor (..)
 import World (..)
 import Input (..)
 
-type Action = Input -> Actor -> World {} -> World {}
+type Action = (Actor, World {}) -> (Actor, World {})
 
 getFromArg : (Actor -> Action) -> Action
-getFromArg f = (\inp ac w -> (f ac) inp ac w)
+getFromArg f = (\(ac,w) -> (f ac) (ac,w))
 
-dirFromInp : (Int -> Action) -> Action
-dirFromInp f = (\inp ac w -> (f (getOneKey inp.keys)) inp ac w)
+--dirFromInp : (Dir -> Action) -> Action
+--dirFromInp f = (\ac w -> (f (getOneKey w.input.keys)) inp ac w)
 
 --facing : Actor -> Int
 --facing act = getFirstNonzero [get2 "facing" act.info, get2 "last_move" act.info]
 
 nullAction:Action
-nullAction _ _ w = w
+nullAction t = t 
 
 --the first actor reacts to the second actor
-type Reaction = Input -> Actor -> Actor -> World {} -> World {}
+type Reaction = Actor -> Actor -> World {} -> World {}
 
 nullReaction:Reaction
-nullReaction _ _ _ w = w
+nullReaction _ _ w = w
 
 --creating simple actions
-simpleAction : (Input -> Actor -> World a -> Actor) -> (Input -> Actor -> World a -> World a)
-simpleAction f = (\inp -> (\ac -> (\w -> 
+simpleAction : ((Actor, World {}) -> Actor) -> Action
+simpleAction f = (\(ac,w) -> 
                                let 
-                                   newA = f inp ac w
+                                   newA = f (ac,w)
                                in      
-                                   updateActor ac newA w)))
+                                   (newA, updateActor ac newA w))
+
+simpleAction0 : ((Actor, World {}) -> Actor) -> Action
+simpleAction0 f = (\(ac,w) -> 
+                               let 
+                                   newA = f (ac,w)
+                               in      
+                                   (newA, updateActor0 ac newA w))
 
 setAction : (Actor -> Actor) -> Action
-setAction f = simpleAction (\_ a _ -> f a)
+setAction f = simpleAction (\(a,w) -> f a)
 
-readFromDirInput : (Int -> Action) -> Action
-readFromDirInput f = (check (\inp _ _ -> Set.member (getOneKey inp.keys) dirs)) .& (\inp -> (f (getOneKey inp.keys)) inp) 
+dirFromInp : (Dir -> Action) -> Action
+dirFromInp f = (check (\(_,w) -> Set.member (getOneKey w.input.keys) dirs)) .& (\(a,w) -> f (getOneKey w.input.keys) (a,w))
 
 --display a message
 
-messageAction : (Actor -> String) -> (Input -> Actor -> World a -> World a)
-messageAction f = (\_ a w -> {w | text <- w.text ++ "\n" ++ (f a)})
+messageAction : (Actor -> String) -> Action
+messageAction f = seqActions [(\(a,w) -> (a,{w | text <- w.text ++ "\n" ++ (f a)})), succeed]
 
-messageAction2 : (Input -> Actor -> World a -> String) -> (Input -> Actor -> World a -> World a)
-messageAction2 f = (\inp a w -> {w | text <- w.text ++ "\n" ++ (f inp a w)})
+messageAction2 : ((Actor, World {}) -> String) -> Action
+messageAction2 f = seqActions [(\(a,w) -> (a,{w | text <- w.text ++ "\n" ++ (f (a,w))})), succeed]
 
 --checking actions
 
-check : (Input -> Actor -> World {} -> Bool) -> Action
-check f = simpleAction (\inp a w -> if f inp a w then asetInt "success" 1 a else asetInt "success" 0 a)
+check : ((Actor, World {}) -> Bool) -> Action
+check f = simpleAction0 (\(a,w) -> if f (a,w) then asetInt "success" 1 a else asetInt "success" 0 a)
 
 checkActor : (Actor -> Bool) -> Action
-checkActor f = check (\_ a _ -> f a)
+checkActor f = check (\(a,_) -> f a)
 
 --movement actions
 moveInDir : Int -> Action
-moveInDir dir = simpleAction (\inp -> (\a -> (\w -> 
+moveInDir dir = simpleAction (\(a,w) ->  
                                                   let 
                                                       oldLoc = a.locs!0
                                                   in a |> (setLoc (tryMove w oldLoc (dir))) |> (\x -> if (x.locs!0)==oldLoc 
                                                                                                       then (asetInt "success" 0 x)
-                                                                                                      else (asetInt "success" 1 x)))))
+                                                                                                      else (asetInt "success" 1 x)))
 
 moveInDir2 : MoveCondition {} -> Int -> Action
-moveInDir2 mc dir = simpleAction (\inp -> (\a -> (\w -> 
+moveInDir2 mc dir = simpleAction (\(a,w) ->  
                                                   let 
                                                       oldLoc = a.locs!0
                                                   in a |> (setLoc (tryMove2 mc w oldLoc (dir))) |> (\x -> if (x.locs!0)==oldLoc 
                                                                                                       then (asetInt "success" 0 x)
-                                                                                                      else (asetInt "success" 1 x)))))
+                                                                                                      else (asetInt "success" 1 x)))
 
 moveIn: Action
-moveIn = (\inp -> (moveInDir (getOneKey inp.keys)) inp)
+moveIn = dirFromInp moveInDir
 
 moveIn2: MoveCondition {} -> Action
-moveIn2 mc =  (\inp -> (moveInDir2 mc (getOneKey inp.keys)) inp)
+moveIn2 mc =  dirFromInp (moveInDir2 mc)
 
 --tryJump : World a -> Actor  -> (Int,Int) -> Actor
 --tryJump w ac (x,y) = 
@@ -100,11 +107,11 @@ moveIn2 mc =  (\inp -> (moveInDir2 mc (getOneKey inp.keys)) inp)
 --            (\(i,(x,y)) ->(i+1,tryMove w (x,y) (dirs!i)))
 --    in (newLoc, if ((x,y)==newLoc) then 0 else dirs!(iend-1)) 
 
-faceDir : Int -> Action
+faceDir : Dir -> Action
 faceDir dir = setAction (asetInt "face" dir)
 
 face : Action
-face = readFromDirInput faceDir
+face = dirFromInp faceDir
 --(check (\inp _ _ -> not (getOneKey inp.keys == 0))) .& (\inp -> (faceDir (getOneKey inp.keys)) inp) 
 --.& (messageAction (\_ -> "faced"))
 
@@ -112,7 +119,7 @@ velocityDir: Int -> Action
 velocityDir dir = setAction (asetInt "v" dir)
 
 velocity : Action
-velocity = readFromDirInput velocityDir
+velocity = dirFromInp velocityDir
 
 stop: Action
 stop = velocityDir 0
@@ -121,11 +128,11 @@ stop = velocityDir 0
 --kill a = (\_ _ w -> 
 
 inertia:Action
-inertia = (\inp a w -> (moveInDir (agetInt "v" a)) inp a w) .| stop
+inertia = seqActions [messageAction (\a -> show (agetInt "v" a)), (\(a,w) -> (moveInDir (agetInt "v" a)) (a,w)) .& (messageAction (\_ -> "block moved")) .| (stop .& messageAction (\_ -> "stopped")) .| messageAction (\_ -> "block failed")]
 --seqActions [messageAction (\x -> show (agetInt "v" x)) ,(\inp a w -> (moveInDir (agetInt "v" a)) inp a w) .| stop]
 
 inertia2: MoveCondition {} -> Action
-inertia2 mc = (\inp a w -> (moveInDir2 mc (agetInt "v" a)) inp a w) .| stop
+inertia2 mc = (\(a,w) -> (moveInDir2 mc (agetInt "v" a)) (a,w)) .| stop
 
 allActorsSatisfy : (Actor -> Bool) -> MoveCondition {}
 allActorsSatisfy f = (\w loc -> inRange w loc && ([] == List.filter (\x -> not (f x)) (getActorsAt loc w)))
@@ -133,47 +140,74 @@ allActorsSatisfy f = (\w loc -> inRange w loc && ([] == List.filter (\x -> not (
 --combinators
 
 seqActions: [Action] -> Action
-seqActions acts = 
-    (\inp -> \actor -> \w -> 
-             let id = getId actor 
-             in
-               foldl (\action -> (\w1 -> 
-                                 action inp (getActor id w1) w1)) w acts) 
+seqActions acts = foldl (<<) nullAction acts
+
+--caseAction: ((Actor, World) -> Bool) -> Action
 
 --Combinators
 (.&):Action -> Action -> Action
-a1 .& a2 = seqActions [a1,(\inp a w -> if ((agetInt "success" a) == 0) then w else a2 inp a w)]
+a1 .& a2 = seqActions [a1,(\(a,w) -> if ((agetInt "success" a) == 0) then (a,w) else a2 (a,w))]
 
 (.|):Action -> Action -> Action
-a1 .| a2 = seqActions [a1,(\inp a w -> if ((agetInt "success" a) == 0) then a2 inp a w else w)]
+a1 .| a2 = seqActions [a1,(\(a,w) -> if ((agetInt "success" a) == 0) then a2 (a,w) else (a,w))]
 
+--returns a success no matter what happens
 try:Action -> Action
-try a = seqActions [a, setAction (\a -> asetInt "success" 1 a)]
+try a = seqActions [a, succeed]
 
 repeat: Int -> Action -> Action
-repeat n a = (if n==0 then a else (\inp a1 w -> if ((agetInt "success" a1) == 0) then w else (repeat (n-1) a) inp (getActor (getId a1) w) w)) .& (setSuccess 1)
+repeat n a = try (if n==0 then a else (\(a1,w) -> 
+                      if ((agetInt "success" a1) == 0) then (a1,w) else (repeat (n-1) a) (a1,w)))
 --the following is easier to write but less efficient?
 --repeat n a = foldl (.&) (repeat n a)
 
 setSuccess: Int -> Action
-setSuccess i = simpleAction (\inp a w -> asetInt "success" i a)
+setSuccess i = simpleAction (\(a,w) -> asetInt "success" i a)
 
 fail: Action
 fail = setSuccess 0
 
+succeed: Action
+succeed = setSuccess 1
+
 many0: Action -> Action
-many0 a = (\inp a1 w -> if ((agetInt "success" a1) == 0) then w else (many0 a) inp (getActor (getId a1) w) w)
+many0 a = try (\(a1,w) -> if ((agetInt "success" a1) == 0) then (a1,w) else (many0 a) (a (a1,w)))
 
 many: Action -> Action
 many a = (a .| fail) .& (many0 a)
 
+getType2: Actor -> String
+getType2 a = getStr "type" a.info
+
+--getType is misbehaving.
+--getType2: Actor -> String
+--getType2 = getType
+
 --make the 2nd actor do something
 make: Actor -> Action -> Action
-make a action = (\inp _ w -> if getType a == "" then w else action inp a w)
+make ac action = (\(orig,w) -> 
+                let 
+                    t : String
+                    t = getType2 ac
+                in
+                  if (t == "") then (orig,w) else (orig, snd (action (ac,w))))
 --(added a check to see if it's null)
 
+makeRel : ((Actor, World {}) -> Actor) -> Action -> Action
+makeRel f action = (\(orig,w) -> 
+                let 
+                    t : String
+                    t = getType2 (f (orig,w))
+                in
+                  if (t == "") then (orig,w) else (orig, snd (action (f (orig, w),w))))
+
+doForAll:(b -> Action) -> ((Actor, World {}) -> [b]) -> Action
+doForAll f g = (\(a,w) -> (seqActions (List.map f (g (a,w)))) (a,w))
+
+--(\(orig,w) -> if (getType2 ((f (orig,w)) == "")) then (orig,w) else action (orig,w))
+
 makeActorIn : Action -> Action
-makeActorIn f = (\inp a w -> (make (actorIn inp a w) f) inp a w)
+makeActorIn f = makeRel actorIn f
 
 die: Action
-die = simpleAction (\_ _ _ -> nullActor)
+die = simpleAction (\_ -> nullActor)

@@ -18,7 +18,7 @@ import Input (..)
 --adict is list of all actors by id
 --ilist is list of *active* actors' id in order of movement (movement is sequential)
 --alocs is a map from locations to actors.
-type World a = {a | l:Int, h: Int, adict: D.Dict Int Actor, ilist: A.Array Int, alocs: D.Dict (Int,Int) (Set.Set Int), text:String, curId:Int}
+type World a = {a | l:Int, h: Int, adict: D.Dict Int Actor, ilist: A.Array Int, alocs: D.Dict (Int,Int) (Set.Set Int), text:String, curId:Int, input:Input}
 
 getActor: Int -> World a -> Actor
 getActor i w = getD i nullActor w.adict
@@ -47,14 +47,14 @@ getActorsAt (x,y) w =
 getFirstActorAt:(Int,Int) -> World {} -> Actor
 getFirstActorAt (x,y) w = getL (getActorsAt (x,y) w) 0 nullActor
 
-getAtSameSpace: Actor -> World {} -> [Actor]
-getAtSameSpace a w = getActorsAt (a.locs!0) w
+getAtSameSpace: (Actor, World {}) -> [Actor]
+getAtSameSpace (a,w) = getActorsAt (a.locs!0) w
 
-getPlayerAtSameSpace : Actor -> World {} -> Actor
-getPlayerAtSameSpace a w =getL (List.filter (\x -> getType x == "player") (getAtSameSpace a w)) 0 nullActor
+getPlayerAtSameSpace : (Actor, World {}) -> Actor
+getPlayerAtSameSpace (a,w) =getL (List.filter (\x -> getType x == "player") (getAtSameSpace (a,w))) 0 nullActor
 
-getSatisfyingAtSameSpace : (Actor -> Bool) -> Actor -> World {} -> [Actor]
-getSatisfyingAtSameSpace f a w = (List.filter (\x -> f x) (getAtSameSpace a w))
+getSatisfyingAtSameSpace : (Actor -> Bool) -> (Actor, World {}) -> [Actor]
+getSatisfyingAtSameSpace f (a,w) = (List.filter (\x -> f x) (getAtSameSpace (a,w)))
 
 
 --this is inefficient if actor is large (ex. Snake)
@@ -68,8 +68,18 @@ updateActor old new w =
     in
         {w | alocs <- al2, adict <- D.insert id new w.adict}
 
+--use this ONLY if the actor doesn't change location (more efficient).
+updateActor0: Actor -> Actor -> World a -> World a
+updateActor0 old new w = 
+    let 
+        id = getId old
+        remM2 = (\x -> \z -> remM x id z)
+        addM2 = (\x -> \z -> addM x id z)
+    in
+        {w | adict <- D.insert id new w.adict}
+
 emptyWorld:Int -> Int -> World {}
-emptyWorld x y = {l=x, h=y, adict=D.empty, ilist=A.empty, alocs=D.empty, text="", curId = 0}
+emptyWorld x y = {l=x, h=y, adict=D.empty, ilist=A.empty, alocs=D.empty, text="", curId = 0, input = nullInput}
 
 --moving in the world
 
@@ -84,17 +94,18 @@ type MoveCondition a = World a -> (Int,Int) -> Bool
 defaultMoveCondition : MoveCondition a
 defaultMoveCondition w sp = (inRange w sp) && (emptySpace w sp)
 
-tryMove : World a -> (Int,Int) -> Int -> (Int,Int)
+tryMove : World a -> (Int,Int) -> Dir -> (Int,Int)
 tryMove w (x,y) dir = tryMove2 defaultMoveCondition w (x,y) dir
 
-tryMove2: MoveCondition a -> World a -> (Int,Int) -> Int -> (Int,Int)
+tryMove2: MoveCondition a -> World a -> (Int,Int) -> Dir -> (Int,Int)
 tryMove2 mc w (x,y) dir = let newSpace = dirFrom dir (x,y)
                       in
                         if mc w newSpace then newSpace else (x,y)
 
-actorInDir : Int -> Actor -> World {} -> Actor
-actorInDir i ac w = (getFirstActorAt (adirFrom i ac) w)
+actorInDir : Int -> (Actor, World {}) -> Actor
+actorInDir i (ac,w) = (getFirstActorAt (adirFrom i ac) w)
 
-actorIn : Input -> Actor -> World {} -> Actor
-actorIn inp ac w = actorInDir (getOneKey inp.keys) ac w
-
+--actorIn : Input -> Actor -> World {} -> Actor
+--actorIn inp ac w = actorInDir (getOneKey inp.keys) ac w
+actorIn : (Actor, World {}) -> Actor
+actorIn (ac,w) = actorInDir (getOneKey w.input.keys) (ac,w)

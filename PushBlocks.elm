@@ -25,7 +25,7 @@ ppAction:Action
 ppAction = seqActions [
             messageAction (\a -> show (a.locs!0)),
             face, 
-            (moveIn .| makeActorIn (dirFromInp velocityDir))
+            (moveIn .| (messageAction (\_ -> "try to make move") .& messageAction2 (\(a,w) -> getType (actorIn (a,w))) .& makeActorIn (dirFromInp velocityDir)) .& messageAction2 (\(a,w) -> show (agetInt "v" (actorIn (a,w))) ++ show (getOneKey w.input.keys)))
            ]
 
 ppFace: D.Dict Int Element

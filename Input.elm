@@ -12,6 +12,9 @@ import Utilities (..)
 
 type Input = {keys:[Keyboard.KeyCode], delta:Time} 
 
+nullInput:Input
+nullInput = {keys = [], delta = 0}
+
 getOneKey:[Keyboard.KeyCode] -> Keyboard.KeyCode
 getOneKey li = if (isEmpty li) then 0 else (li!0)
 

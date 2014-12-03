@@ -61,7 +61,8 @@ display width height pixs sidebarL f w =
        totalH = height*pixs
        totalW = width*pixs
    in
-       collageAbs (totalW+sidebarL) totalH ((0,0)::(totalW,totalH-30)::drawCoords)
+       collageAbs (totalW+sidebarL) totalH ((0,0)::(totalW,totalH-300)::drawCoords)
             ((image totalW totalH "bg.gif")::(plainText w.text)::drawPics)
 
+defaultDisplay : World2 -> Element
 defaultDisplay = display 15 15 30 80 defaultViewCoord

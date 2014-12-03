@@ -35,6 +35,8 @@ worldStart x y = (emptyWorld2 x y)
                |> (addActor player) 
                |> addType "player" playerAction nullReaction playerDraw
 
+worldState : Signal World2
 worldState = foldp stepWorld (worldStart 15 15) input
 
+--main : Signal Element
 main = lift defaultDisplay worldState

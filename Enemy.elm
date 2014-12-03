@@ -47,7 +47,7 @@ enemy = nullActor |> setType "enemy" |> setLoc (14,14)
 enemyAction = seqActions [foldl1 (.|) (List.map (moveInDir2 
                                 (allActorsSatisfy (\x -> getType x == "player")))
                                 [downArrow,leftArrow]),
-                          (\inp a w -> (make (getPlayerAtSameSpace a w) die) inp a w)]
+                          (makeRel getPlayerAtSameSpace die)]
 
 enemyDraw = simpleDraw (croppedImage (60,120) 30 30 "iceblox.gif")
 
