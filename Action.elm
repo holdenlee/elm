@@ -128,7 +128,7 @@ stop = velocityDir 0
 --kill a = (\_ _ w -> 
 
 inertia:Action
-inertia = seqActions [messageAction (\a -> show (agetInt "v" a)), (\(a,w) -> (moveInDir (agetInt "v" a)) (a,w)) .& (messageAction (\_ -> "block moved")) .| (stop .& messageAction (\_ -> "stopped")) .| messageAction (\_ -> "block failed")]
+inertia = (\(a,w) -> (moveInDir (agetInt "v" a)) (a,w)) .| stop
 --seqActions [messageAction (\x -> show (agetInt "v" x)) ,(\inp a w -> (moveInDir (agetInt "v" a)) inp a w) .| stop]
 
 inertia2: MoveCondition {} -> Action
