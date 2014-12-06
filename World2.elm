@@ -26,7 +26,7 @@ type World2 = World {actions: D.Dict String Action, reactions: D.Dict String Rea
 emptyWorld2:Int -> Int -> World2
 emptyWorld2 x y = 
     let ew = emptyWorld x y 
-    in {l=x, h=y, adict=D.empty, ilist=A.empty, alocs=D.empty, text="", curId = 0, input = nullInput, actions = D.empty, reactions = D.empty, draws = D.empty}
+    in {l=x, h=y, adict=D.empty, ilist=A.empty, alocs=D.empty, text="", curId = 0, input = nullInput, info = D.empty, actions = D.empty, reactions = D.empty, draws = D.empty}
 --{ew | actions = D.empty, reactions = D.empty, draw = D.empty}
 
 drawActor: Actor -> (Int,Int) -> World2 -> Element

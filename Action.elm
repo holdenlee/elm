@@ -211,3 +211,11 @@ makeActorIn f = makeRel actorIn f
 
 die: Action
 die = simpleAction (\_ -> nullActor)
+
+doOrFail: Action -> Action
+doOrFail ac = (\(a,w) -> 
+              let (a2,w2) = ac (a,w)
+              in 
+                if ((agetInt "success" a2) == 1)
+                   then (a2,w2)
+                   else fail (a,w))
