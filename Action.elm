@@ -190,7 +190,12 @@ make ac action = (\(orig,w) ->
                     t : String
                     t = getType2 ac
                 in
-                  if (t == "") then (orig,w) else (orig, snd (action (ac,w))))
+                  if (t == "") then fail (orig,w) else 
+                      let 
+                          (newA, newW) = action (ac, w)
+                          i =  agetInt "success" newA
+                      in 
+                        setSuccess i (orig, newW))
 --(added a check to see if it's null)
 
 makeRel : ((Actor, World {}) -> Actor) -> Action -> Action
@@ -199,7 +204,11 @@ makeRel f action = (\(orig,w) ->
                     t : String
                     t = getType2 (f (orig,w))
                 in
-                  if (t == "") then (orig,w) else (orig, snd (action (f (orig, w),w))))
+                  if (t == "") then fail (orig,w) else 
+                      let 
+                          (newA, newW) = action (f (orig, w), w)
+                          i = agetInt "success" newA
+                      in setSuccess i (orig, newW))
 
 doForAll:(b -> Action) -> ((Actor, World {}) -> [b]) -> Action
 doForAll f g = (\(a,w) -> (seqActions (List.map f (g (a,w)))) (a,w))
