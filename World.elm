@@ -18,7 +18,7 @@ import Input (..)
 --adict is list of all actors by id
 --ilist is list of *active* actors' id in order of movement (movement is sequential)
 --alocs is a map from locations to actors.
-type World a = {a | l:Int, h: Int, adict: D.Dict Int Actor, ilist: A.Array Int, alocs: D.Dict (Int,Int) (Set.Set Int), text:String, curId:Int, input:Input, info:Info}
+type World a = {a | l:Int, h: Int, adict: D.Dict Int Actor, ilist: A.Array Int, alocs: D.Dict (Int,Int) (Set.Set Int), text:String, curId:Int, input:Input, info:DictInfo}
 
 getActor: Int -> World a -> Actor
 getActor i w = getD i nullActor w.adict
