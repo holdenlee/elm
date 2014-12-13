@@ -29,7 +29,7 @@ input: Signal Input
 input = mergeMany [map Pressed ((\x y z w -> [x,y,z,w]) <~ isDown leftArrow
                                                         ~ isDown downArrow
                                                         ~ isDown upArrow
-                                                        ~ isDown rightArrow), map TimeDelta (fps 50)]
+                                                        ~ isDown rightArrow), map TimeDelta (fps 1)]
 
 step: Int -> Int -> Int -> Int -> Step
 step w x y z = [(w==1), (x==1), (y==1), (z==1)]
@@ -100,10 +100,10 @@ stepGame inp g =
 stepNames = ["left", "down", "up", "right"]
 
 arrowPics1 : List String
-arrowPics1 = L.map (\x -> "ddr/"++x++"1.png") stepNames
+arrowPics1 = L.map (\x -> "https://dl.dropboxusercontent.com/u/27883775/code/ddr/"++x++"1.png") stepNames
 
 arrowPics2 : List String
-arrowPics2 = L.map (\x -> "ddr/"++x++"2.png") stepNames
+arrowPics2 = L.map (\x -> "https://dl.dropboxusercontent.com/u/27883775/code/ddr/"++x++"2.png") stepNames
 
 displayStep : (Int, Step) -> Element
 displayStep (i,s) = 
