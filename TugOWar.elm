@@ -23,7 +23,7 @@ pressed: KeyCode -> Signal Bool
 pressed x = keepIf (\_ -> True) False (isDown x)
 
 enumerate: List a -> List (Int, a)
-enumerate li = L.map2 (,) [1..(L.length li)] li
+enumerate li = L.map2 (,) [0..(L.length li - 1)] li
 
 --getSignalIndex : List (Signal a) -> Signal Int
 --getSignalIndex li = map (\(i,s) -> i) (mergeMany <| L.map (\(x, s) -> map (\t -> (x,t)) s) (enumerate li))

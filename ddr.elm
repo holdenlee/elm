@@ -1,118 +1,136 @@
-import Keyboard
+import Color (..)
+import Keyboard (..)
 import Text
 import Window
+import Graphics.Element (..)
+import Graphics.Collage (..)
+import Signal (..)
+import Time (..)
+import List as L
+import Array as A
+import Maybe as M
 
-(!): [a] -> Int -> a
-li ! i = head (drop i li)
+--Utility
 
--- arrows = directions 38 40 37 39
--- Inputs
-upArrow : Int
-upArrow = 38
+(!): List a -> Int -> a
+li ! i = L.head (L.drop i li)
 
-downArrow : Int
-downArrow = 40
+enumerate: List a -> List (Int, a)
+enumerate li = L.map2 (,) [0..(L.length li - 1)] li
 
-leftArrow : Int
-leftArrow = 37
+-- Input
+(upArrow, downArrow, leftArrow, rightArrow) = (38,40,37,39)
 
-rightArrow : Int
-rightArrow = 39
+type alias Step = List Bool
 
-type Step = {up:Bool, down:Bool, left:Bool, right:Bool}
---type Dir = { x:Float, y:Float }
-type Input = {up:Bool, down:Bool, left:Bool, right:Bool}
---doesn't like type aliases...
---https://groups.google.com/forum/#!msg/elm-discuss/anCtDiIHY3g/xzoKr76T-g4J
+type Input = Pressed Step | TimeDelta Time
 
-toList: Step -> [Bool]
-toList s = [s.up, s.down, s.left, s.right]
+input: Signal Input
+input = mergeMany [map Pressed ((\x y z w -> [x,y,z,w]) <~ isDown leftArrow
+                                                        ~ isDown downArrow
+                                                        ~ isDown upArrow
+                                                        ~ isDown rightArrow), map TimeDelta (fps 50)]
 
 step: Int -> Int -> Int -> Int -> Step
-step w x y z = {up = (w==1), down = (x==1), left = (y==1), right = (z==1)}
+step w x y z = [(w==1), (x==1), (y==1), (z==1)]
 
-noStep : Step -> Bool
-noStep s = (s.up == False) && (s.down == False) && (s.left == False) && (s.right == False) 
+--noStep : Step -> Bool
+--noStep s = (s.up == False) && (s.down == False) && (s.left == False) && (s.right == False) 
 
---up:Dir
---up = {x=0,y=1}
---down = {x=0,y=-1}
---left = {x=-1,y=0}
---right = {x=1,y=1}
 none:Step 
 none = step 0 0 0 0
 
 u : Step
-u = step 1 0 0 0
+u = step 0 0 1 0
 
 d : Step
 d = step 0 1 0 0
 
 l : Step
-l = step 0 0 1 0
+l = step 1 0 0 0
 
 r : Step
 r = step 0 0 0 1
 
 (&) : Step -> Step -> Step
-s1 & s2 = {up = s1.up || s2.up, down = s1.down || s2.down, left = s1.left || s2.left, right = s2.right || s2.right}
+s1 & s2 = L.map2 (||) s1 s2
 
 imp: Bool -> Bool -> Bool 
 imp x y = (x==False) || (y==True)
 
---does the first step match the second? Return yes if the first is a subset of the second.
-matches: Step -> Step -> Bool
-matches s t = foldl1 (&&) (zipWith (flip imp) (toList s) (toList t))
+--Return yes if the second is a subset of the first.
+hitAll: Step -> Step -> Bool
+hitAll s t = L.all identity (L.map2 (flip imp) s t)
 
-type Dance = [Step]
+type alias Dance = A.Array Step
+
+getStep : Int -> Dance -> Step
+getStep i dance = M.withDefault none (A.get i dance)
 
 sampleDance:Dance
-sampleDance = [u, r, u, r, d]
-
--- input
-
-input : Signal Input
-input = Input <~ Keyboard.isDown upArrow
-        ~ Keyboard.isDown downArrow
-        ~ Keyboard.isDown leftArrow
-        ~ Keyboard.isDown rightArrow
+sampleDance = A.fromList [u, r, u, r, d]
 
 -- Model
 
-type Game = { index:Int, lastPress:Step, dance:[Step] }
+type alias Game = { index:Int, lastPressed: Step, pressed:Step, dance:A.Array Step, t:Time}
 
 -- Updates
 
 stepGame : Input -> Game -> Game
-stepGame ({up,down,left,right} as inp) ({index, lastPress, dance} as g) =
---if no arrows pressed. This is actually subsumed by the last
---    if | noStep inp -> {g | lastPress <- none}
+stepGame inp g = 
 --if the dance is over
-    if | index > length dance -> g
---if the arrow matches, and it wasn't just pressed, then return (index + 1, this press, dance)
-       | (lastPress /= dance ! index) && (matches inp (dance ! index)) -> {g | index <- index + 1, lastPress <- inp}
---if the arrow doesn't match
-       | otherwise -> {g | lastPress <- inp}
+    if g.index >= A.length g.dance 
+    then g
+--if the dance is continuing
+    else 
+      case inp of
+--only updating time
+        TimeDelta d -> {g | t <- g.t + d}
+        Pressed s -> 
+--at all places where inp does not equal lastPressed, update the keys that are registered as being pressed
+            let newPressed = L.map3 (\x y z -> if x/=y then x else z) s g.lastPressed g.pressed
+            in
+              if newPressed `hitAll` (getStep g.index g.dance)
+--move on to next
+              then {g | index <- g.index + 1, lastPressed <- s, pressed <- none}
+              else {g | lastPressed <- s, pressed <- newPressed}
 
 --Display
 
+stepNames = ["left", "down", "up", "right"]
+
+arrowPics1 : List String
+arrowPics1 = L.map (\x -> "ddr/"++x++"1.png") stepNames
+
+arrowPics2 : List String
+arrowPics2 = L.map (\x -> "ddr/"++x++"2.png") stepNames
+
+displayStep : (Int, Step) -> Element
+displayStep (i,s) = 
+    if i==0
+    then flow right (L.map (\(i,x) -> if x then image 64 64 <| arrowPics2!i else spacer 64 64) (enumerate s))
+    else flow right (L.map (\(i,x) -> if x then image 64 64 <| arrowPics1!i else spacer 64 64) (enumerate s))
+
 display : (Int, Int) -> Game -> Element
-display (w,h) ({index, lastPress, dance} as g) = 
-    let score : Element
-        score = txt (Text.height 50) (show g.index)
-    in container w h middle <| collage w h [toForm score |> move (0,0)]
---((w `div` 2) - 10, (h `div` 2) - 20)]
-              
---Run
+display (w,h) g =
+    let 
+        numFit = h // 64
+        danceDisplay = 
+          container 256 h midTop <| 
+                    flow down 
+                             (L.map displayStep (enumerate (L.map (flip getStep g.dance) [(g.index)..(g.index + numFit - 1)])))
+        score = txt (Text.height 50) (toString g.index)
+        time = txt (Text.height 50) (toString (round (g.t/1000)))
+        arrows = txt (Text.height 50) (toString g.pressed)
+        rightDisplay = flow down [score, time, arrows]
+    in container w h topLeft (flow right [danceDisplay, rightDisplay])
 
--- http://library.elm-lang.org/catalog/elm-lang-Elm/0.12.3/Signal#foldp
-
-txt : (Text -> Text) -> String -> Element
-txt f x = leftAligned <| f <| monospace <| (Text.color black) <| (toText x)
+txt : (Text.Text -> Text.Text) -> String -> Element
+txt f x = Text.leftAligned <| f <| Text.monospace <| (Text.color black) <| (Text.fromString x)
 
 gameStart : Game
-gameStart = {index = 0, lastPress = none, dance = sampleDance}
+gameStart = {index = 0, lastPressed = none, pressed = none,  dance = sampleDance, t=0}
 
 gameState = foldp stepGame gameStart input
 
-main = lift2 display Window.dimensions gameState
+main = map2 display Window.dimensions gameState
