@@ -31,8 +31,12 @@ enumerate li = L.map2 (,) [1..(L.length li)] li
 getSignalPair : List (Signal a) -> Signal (Int, a)
 getSignalPair li = mergeMany <| L.map (\(x, s) -> map (\t -> (x,t)) s) (enumerate li)
 
+left = 37
+right = 39
+--188, 190
+
 getPressed : Signal Update
-getPressed = map (\(i,x) -> if x==False then LR (-1) else LR i) (getSignalPair [isDown 188, isDown 190])
+getPressed = map (\(i,x) -> if x==False then LR (-1) else LR i) (getSignalPair [isDown 37, isDown 39])
 
 input: Signal Update
 input = mergeMany [getPressed, map TimeDelta (fps 50), map Enter (pressed 13)]
@@ -40,10 +44,6 @@ input = mergeMany [getPressed, map TimeDelta (fps 50), map Enter (pressed 13)]
 --[map Left (press 188), map Right (press 190), map TimeDelta (fps 50)]
 
 -- Model
-
---0 for left, 1 for right
-left = 0
-right = 1
 
 type alias Model = {lastPressed:Dir, score:Int, t:Time}
 
