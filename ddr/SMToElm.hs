@@ -3,6 +3,7 @@
  -XMultiParamTypeClasses
  -XFunctionalDependencies
 #-}
+{-usage: SMToElm input.sm output.txt-}
 
 module Main where
 import System.Environment
