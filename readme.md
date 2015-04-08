@@ -1,3 +1,15 @@
+Ready to play:
+
++ ddr2.elm
++ TugOWar.elm
++ snake.elm
+
+For testing purposes:
+
++ Keys.elm (shows keys pressed)
++ GameOptions.elm (how to create a game menu)
+
+I'm building a 2D game platform. I need to update it to the latest version of Elm (as of now, it won't compile).
 
 To add:
 

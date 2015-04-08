@@ -29,7 +29,7 @@ startModel : Model
 startModel = {state = Setup, settings = default}
 
 default : Settings
-default = {dance = max300, rpt = False}
+default = {dance = maxhard, rpt = False}
 
 -- Display
 
@@ -72,7 +72,7 @@ updateChannel : Channel Update
 updateChannel = channel (UpdateRpt False)
 
 songList : List (String, Dance)
-songList = [("MAX 300", max300), ("MAX 300 End", maxEndPart)]
+songList = [("MAX 300 EXP", maxhard), ("MAX 300 CHA", max300), ("MAX 300 End", maxEndPart), ("MAx Part 1", max1), ("MAX Part 2", max2)]
 
 rptList : List (String, Bool)
 rptList = [("Normal", False), ("Nonstop", True)]
